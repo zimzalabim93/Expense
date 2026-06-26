@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ทายภาพ — Quiz Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0F1117;
+    --surface:   #1A1D26;
+    --card:      #22263A;
+    --border:    #2D3147;
+    --gold:      #F5C842;
+    --gold-dim:  #7A6220;
+    --teal:      #4ECDC4;
+    --teal-dim:  #1E5E5A;
+    --red:       #FF5E5E;
+    --text:      #E8EAF2;
+    --muted:     #6B7394;
+    --radius:    14px;
+    --font:      'Sarabun', sans-serif;
+    /* Touch target minimum */
+    --touch:     52px;
+  }
+
+  html, body { height: 100%; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    /* Prevent iOS bounce causing layout issues */
+    overscroll-behavior: none;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ── HEADER ── */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .app-logo {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+    color: var(--gold);
+  }
+  .app-logo span { color: var(--teal); }
+  .header-actions { display: flex; gap: 10px; }
+
+  /* ── BUTTONS — all ≥ 44px touch target ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: var(--touch);
+    padding: 0 22px; border-radius: var(--radius);
+    font-family: var(--font); font-size: 16px; font-weight: 600;
+    border: none; cursor: pointer; transition: all .15s;
+    text-decoration: none; white-space: nowrap;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn:active { opacity: .85; transform: scale(.97); }
+  .btn-primary   { background: var(--gold); color: #0F1117; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-teal      { background: var(--teal); color: #0F1117; }
+  .btn-danger    { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .btn-icon      { padding: 0; width: var(--touch); }
+  .btn-sm        { min-height: 44px; padding: 0 16px; font-size: 15px; }
+
+  /* ── HOME SCREEN ── */
+  #screen-home { padding: 0; }
+  .home-hero {
+    text-align: center; padding: 52px 32px 40px;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, #1f2540 0%, var(--bg) 70%);
+  }
+  .home-hero h1 {
+    font-size: clamp(36px, 5vw, 56px); font-weight: 800;
+    line-height: 1.1; letter-spacing: -1px; margin-bottom: 12px;
+  }
+  .home-hero h1 em { font-style: normal; color: var(--gold); }
+  .home-hero p { color: var(--muted); font-size: 18px; margin-bottom: 32px; }
+  .home-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .games-section { padding: 28px; flex: 1; }
+  .games-section h2 {
+    font-size: 12px; font-weight: 700; margin-bottom: 18px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+  }
+  /* iPad portrait: 2 cols, landscape: 3 cols */
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+  @media (min-width: 900px) {
+    .games-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .game-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    cursor: pointer; transition: border-color .2s;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .game-card:active { border-color: var(--teal); }
+  .game-card-title { font-size: 19px; font-weight: 700; }
+  .game-card-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 99px;
+    font-size: 13px; font-weight: 600;
+    background: var(--card); color: var(--muted); border: 1px solid var(--border);
+  }
+  .badge-gold { background: rgba(245,200,66,.12); color: var(--gold); border-color: var(--gold-dim); }
+  .game-card-actions { display: flex; gap: 8px; margin-top: auto; }
+  .game-thumb-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 4px;
+    border-radius: 10px; overflow: hidden;
+  }
+  .game-thumb-item {
+    aspect-ratio: 1; background: var(--card);
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 11px;
+  }
+  .empty-state {
+    text-align: center; padding: 80px 32px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 56px; margin-bottom: 20px; opacity: .4; display: block; }
+  .empty-state p { margin-bottom: 28px; font-size: 17px; line-height: 1.6; }
+
+  /* ── BUILDER SCREEN ── */
+  #screen-builder { padding: 0; }
+  .builder-body { flex: 1; padding: 28px 32px; max-width: 960px; margin: 0 auto; width: 100%; }
+  .form-group { margin-bottom: 24px; }
+  .form-label {
+    display: block; font-size: 13px; font-weight: 700; color: var(--muted);
+    margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px;
+  }
+  .form-input {
+    width: 100%; padding: 14px 18px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font); font-size: 17px;
+    outline: none; transition: border-color .15s;
+    /* Prevent iOS zoom on focus (font-size ≥ 16px already handles it) */
+  }
+  .form-input:focus { border-color: var(--teal); }
+  .form-input::placeholder { color: var(--muted); }
+
+  .section-title {
+    font-size: 13px; font-weight: 700; color: var(--gold);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 18px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Builder slots: exactly 3 columns on iPad */
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) {
+    .slots-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .slot {
+    position: relative; border-radius: var(--radius);
+    border: 2px dashed var(--border);
+    overflow: hidden; aspect-ratio: 1;
+    transition: border-color .2s;
+    background: var(--surface);
+  }
+  .slot.has-image { border-style: solid; border-color: var(--border); }
+  .slot.is-answer { border-color: var(--gold) !important; border-style: solid; }
+
+  /* Empty slot: two-button layout */
+  .slot-empty-btns {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; flex-direction: column;
+  }
+  .slot-upload-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    cursor: pointer; background: transparent; border: none;
+    color: var(--muted); font-family: var(--font); font-size: 13px; font-weight: 600;
+  }
+  .slot-upload-btn:active { color: var(--teal); background: rgba(78,205,196,.07); }
+  .slot-upload-btn .icon { font-size: 24px; }
+  .slot-upload-file { border-bottom: 1px solid var(--border); }
+  .slot-upload-url  { }
+
+  .slot-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 1; pointer-events: none;
+  }
+
+  /* iPad: overlay always visible (no hover) */
+  .slot-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 8px 6px; display: flex; gap: 5px; justify-content: center;
+    background: linear-gradient(transparent, rgba(0,0,0,.82));
+    z-index: 3;
+  }
+  .slot-overlay button {
+    flex: 1; min-height: 38px; border-radius: 8px; border: none;
+    font-family: var(--font); font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: opacity .15s;
+  }
+  .slot-overlay button:active { opacity: .7; }
+  .slot-set-answer { background: var(--gold); color: #0F1117; }
+  .slot-remove     { background: rgba(255,94,94,.25); color: var(--red); }
+
+  .slot-answer-badge {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--gold); color: #0F1117;
+    font-size: 11px; font-weight: 800;
+    padding: 4px 10px; border-radius: 99px; z-index: 4;
+  }
+  .slot-number {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,.55); color: #fff;
+    font-size: 13px; font-weight: 700;
+    padding: 3px 9px; border-radius: 99px; z-index: 4;
+  }
+
+  .builder-hint {
+    color: var(--muted); font-size: 14px; margin-bottom: 24px;
+    padding: 12px 16px; background: var(--surface);
+    border-radius: 10px; border: 1px solid var(--border);
+  }
+
+  .builder-footer {
+    display: flex; gap: 12px; justify-content: flex-end;
+    padding: 16px 32px; border-top: 1px solid var(--border);
+    background: var(--surface); position: sticky; bottom: 0;
+  }
+
+  /* ── PLAY SCREEN ── */
+  #screen-play { padding: 0; }
+  .play-header {
+    padding: 20px 32px; text-align: center;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .play-game-title { font-size: clamp(22px, 3.5vw, 36px); font-weight: 800; }
+  .play-game-label { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .play-topbar {
+    display: flex; align-items: center;
+    padding: 14px 32px; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .round-indicator { color: var(--muted); font-size: 15px; flex: 1; }
+  .round-indicator strong { color: var(--text); }
+  .score-display {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 18px; background: var(--card); border-radius: 99px;
+    font-size: 16px; font-weight: 700;
+  }
+  .score-display .num { color: var(--gold); font-size: 22px; line-height: 1; }
+
+  .play-body {
+    flex: 1; padding: 28px 32px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .play-question {
+    font-size: clamp(18px, 2.5vw, 26px); font-weight: 700;
+    text-align: center; margin-bottom: 28px; max-width: 640px;
+    line-height: 1.4;
+  }
+  .play-question em { color: var(--gold); font-style: normal; }
+
+  /* Play grid: 3 cols, large touch targets on iPad */
+  .play-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: 100%; max-width: 720px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 600px) {
+    .play-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .play-card {
+    position: relative; border-radius: var(--radius);
+    overflow: hidden; aspect-ratio: 1;
+    cursor: pointer; border: 3px solid transparent;
+    transition: border-color .15s, transform .1s;
+    background: var(--card);
+    -webkit-user-select: none; user-select: none;
+  }
+  .play-card:active:not(.revealed) { transform: scale(.96); border-color: var(--teal); }
+  .play-card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .play-card-num {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,.65); color: #fff;
+    font-size: 14px; font-weight: 700;
+    padding: 4px 12px; border-radius: 99px;
+  }
+
+  /* Reveal states */
+  .play-card.correct { border-color: var(--gold); }
+  .play-card.wrong   { border-color: var(--red); opacity: .45; }
+  .play-card.revealed.correct::after {
+    content: '✓ ถูก!';
+    position: absolute; inset: 0;
+    background: rgba(245,200,66,.28);
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(18px, 2.5vw, 26px); font-weight: 800; color: var(--gold);
+  }
+  .play-card.revealed.wrong::after {
+    content: '✗';
+    position: absolute; inset: 0;
+    background: rgba(255,94,94,.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: var(--red);
+  }
+
+  .result-banner {
+    display: none; text-align: center; padding: 24px 32px;
+    border-radius: var(--radius); margin-bottom: 24px;
+    width: 100%; max-width: 720px;
+  }
+  .result-banner.correct-banner {
+    background: rgba(245,200,66,.1); border: 1px solid var(--gold-dim); display: block;
+  }
+  .result-banner.wrong-banner {
+    background: rgba(255,94,94,.1); border: 1px solid rgba(255,94,94,.3); display: block;
+  }
+  .result-banner .big { font-size: clamp(26px, 4vw, 40px); font-weight: 800; margin-bottom: 6px; }
+  .result-banner.correct-banner .big { color: var(--gold); }
+  .result-banner.wrong-banner .big   { color: var(--red); }
+  .result-banner .sub { color: var(--muted); font-size: 16px; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.72); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 32px; max-width: 440px; width: 100%;
+  }
+  .modal h3 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+  .modal p { color: var(--muted); margin-bottom: 24px; font-size: 16px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 14px 28px; border-radius: 99px;
+    font-size: 15px; font-weight: 600;
+    z-index: 999; transition: transform .3s ease;
+    white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--gold-dim); color: var(--gold); }
+  .toast.error   { border-color: rgba(255,94,94,.4); color: var(--red); }
+
+  /* ── MISC ── */
+  input[type="file"] { display: none; }
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SCREEN: HOME ═══════════════ -->
+<div id="screen-home" class="screen active">
+  <header class="app-header">
+    <div class="app-logo">ทาย<span>ภาพ</span></div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="goToBuilder()">＋ สร้างเกมใหม่</button>
+    </div>
+  </header>
+
+  <div class="home-hero">
+    <h1>เกมทาย<em>ภาพ</em></h1>
+    <p>สร้างเกมทายภาพได้หลายชุด เล่นได้ทุกคน ไม่ต้องติดตั้ง</p>
+    <div class="home-actions">
+      <button class="btn btn-primary" onclick="goToBuilder()">＋ สร้างเกมใหม่</button>
+    </div>
+  </div>
+
+  <div class="games-section">
+    <h2>เกมทั้งหมด</h2>
+    <div id="games-grid" class="games-grid"></div>
+    <div id="empty-state" class="empty-state" style="display:none">
+      <div class="icon">🎮</div>
+      <p>ยังไม่มีเกมใดๆ<br>เริ่มสร้างเกมแรกของคุณได้เลย!</p>
+      <button class="btn btn-primary" onclick="goToBuilder()">＋ สร้างเกมแรก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SCREEN: BUILDER ═══════════════ -->
+<div id="screen-builder" class="screen">
+  <header class="app-header">
+    <div class="app-logo">ทาย<span>ภาพ</span></div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="goHome()">← กลับ</button>
+    </div>
+  </header>
+
+  <div class="builder-body">
+    <h2 id="builder-mode-title" style="font-size:24px;font-weight:800;margin-bottom:24px;">สร้างเกมใหม่</h2>
+
+    <div class="form-group">
+      <label class="form-label">ชื่อเกม</label>
+      <input id="game-title" class="form-input" type="text" placeholder="เช่น ทายธงชาติ, ทายดาราหนัง...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">คำถามที่แสดงในเกม</label>
+      <input id="game-question" class="form-input" type="text" placeholder="เช่น รูปไหนคือธงชาติญี่ปุ่น?">
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-title">รูปภาพ 6 รูป (เลือก 1 รูปเป็นคำตอบที่ถูกต้อง)</div>
+
+    <div class="slots-grid" id="slots-grid">
+      <!-- slots generated by JS -->
+    </div>
+
+    <div class="builder-hint">
+      💡 แตะปุ่ม <strong>ตั้งเป็นคำตอบ</strong> ใต้รูปที่ถูกต้อง หรือแตะ <strong>✕ ลบ</strong> เพื่อเปลี่ยนรูป
+    </div>
+  </div>
+
+  <div class="builder-footer">
+    <button class="btn btn-secondary" onclick="goHome()">ยกเลิก</button>
+    <button id="save-btn" class="btn btn-primary" onclick="saveGame()">💾 บันทึกเกม</button>
+  </div>
+</div>
+
+<!-- ═══════════════ SCREEN: PLAY ═══════════════ -->
+<div id="screen-play" class="screen">
+  <div class="play-header">
+    <div id="play-game-title" class="play-game-title"></div>
+    <div class="play-game-label">เกมทายภาพ</div>
+  </div>
+
+  <div class="play-topbar">
+    <div class="round-indicator">รอบที่ <strong id="round-num">1</strong></div>
+    <div class="score-display">🏆 <span class="num" id="score-num">0</span> คะแนน</div>
+    <button class="btn btn-secondary btn-sm" onclick="goHome()">← เลือกเกม</button>
+  </div>
+
+  <div class="play-body">
+    <div id="play-question" class="play-question"></div>
+    <div id="result-banner" class="result-banner"></div>
+    <div id="play-grid" class="play-grid"></div>
+    <div id="play-actions" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL: CONFIRM DELETE ═══════════════ -->
+<div id="modal-delete" class="modal-overlay">
+  <div class="modal">
+    <h3>ลบเกม?</h3>
+    <p id="modal-delete-msg">คุณต้องการลบเกมนี้ใช่ไหม? ไม่สามารถกู้คืนได้</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">ลบเลย</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOAST ═══════════════ -->
+<div id="toast" class="toast"></div>
+
+<!-- ═══════════════ MODAL: URL INPUT ═══════════════ -->
+<div id="modal-url" class="modal-overlay">
+  <div class="modal">
+    <h3>ใส่ลิงก์รูปภาพ</h3>
+    <p>วาง URL รูปภาพ (.jpg, .png, .webp หรืออื่นๆ)</p>
+    <div class="form-group" style="margin-bottom:0">
+      <input id="url-input" class="form-input" type="url" placeholder="https://example.com/image.jpg" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <div id="url-preview-wrap" style="margin-top:12px;display:none">
+        <img id="url-preview" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;background:var(--card);" alt="preview">
+        <div id="url-preview-err" style="color:var(--red);font-size:13px;margin-top:6px;display:none">โหลดรูปไม่ได้ — ตรวจสอบ URL อีกครั้ง</div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="closeUrlModal()">ยกเลิก</button>
+      <button id="url-confirm-btn" class="btn btn-primary" onclick="confirmUrl()">ใช้รูปนี้</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ FILE INPUT ═══════════════ -->
+<input type="file" id="file-input" accept="image/*">
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let games = [];
+let editingId = null;
+let builderSlots = Array(6).fill(null); // {dataUrl, label}
+let builderAnswer = -1; // index 0-5
+let pendingDeleteId = null;
+
+// Play state
+let playGameId = null;
+let playScore = 0;
+let playRound = 1;
+let playAnswered = false;
+
+// ─── STORAGE ──────────────────────────────────────────────
+function saveToStorage() {
+  try { localStorage.setItem('taiPap_games', JSON.stringify(games)); } catch(e) {}
+}
+function loadFromStorage() {
+  try {
+    const d = localStorage.getItem('taiPap_games');
+    if (d) games = JSON.parse(d);
+  } catch(e) { games = []; }
+}
+
+// ─── SCREENS ──────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goHome() { renderHome(); showScreen('home'); }
+
+// ─── HOME ─────────────────────────────────────────────────
+function renderHome() {
+  const grid = document.getElementById('games-grid');
+  const empty = document.getElementById('empty-state');
+  grid.innerHTML = '';
+  if (games.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  games.forEach(g => {
+    const card = document.createElement('div');
+    card.className = 'game-card';
+
+    // thumb grid (first 6 slots)
+    const thumbs = g.slots.map(s => `
+      <div class="game-thumb-item" style="${s ? 'background-image:url(' + s.dataUrl + ')' : ''}">
+        ${s ? '' : '?'}
+      </div>`).join('');
+
+    card.innerHTML = `
+      <div class="game-thumb-grid">${thumbs}</div>
+      <div class="game-card-title">${escHtml(g.title)}</div>
+      <div class="game-card-meta">
+        <span class="badge">6 รูป</span>
+        <span class="badge badge-gold">คำตอบ: รูปที่ ${g.answerIndex + 1}</span>
+      </div>
+      <div class="game-card-actions">
+        <button class="btn btn-teal btn-sm" style="flex:1" onclick="startPlay('${g.id}')">▶ เล่น</button>
+        <button class="btn btn-secondary btn-sm" onclick="goToBuilder('${g.id}')">✏️ แก้ไข</button>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="askDelete('${g.id}',event)">🗑</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ─── BUILDER ──────────────────────────────────────────────
+function goToBuilder(id) {
+  editingId = id || null;
+  builderSlots = Array(6).fill(null);
+  builderAnswer = -1;
+
+  if (id) {
+    const g = games.find(x => x.id === id);
+    if (g) {
+      document.getElementById('game-title').value = g.title;
+      document.getElementById('game-question').value = g.question;
+      builderSlots = g.slots.map(s => s ? { dataUrl: s.dataUrl } : null);
+      builderAnswer = g.answerIndex;
+      document.getElementById('builder-mode-title').textContent = 'แก้ไขเกม';
+      document.getElementById('save-btn').textContent = '💾 อัปเดตเกม';
+    }
+  } else {
+    document.getElementById('game-title').value = '';
+    document.getElementById('game-question').value = '';
+    document.getElementById('builder-mode-title').textContent = 'สร้างเกมใหม่';
+    document.getElementById('save-btn').textContent = '💾 บันทึกเกม';
+  }
+
+  renderSlots();
+  showScreen('builder');
+}
+
+function renderSlots() {
+  const grid = document.getElementById('slots-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const slot = builderSlots[i];
+    const isAnswer = builderAnswer === i;
+    const el = document.createElement('div');
+    el.className = 'slot' + (slot ? ' has-image' : '') + (isAnswer ? ' is-answer' : '');
+    el.innerHTML = `
+      <span class="slot-number">${i + 1}</span>
+      ${isAnswer && slot ? '<span class="slot-answer-badge">✓ คำตอบ</span>' : ''}
+      ${slot ? `<img class="slot-img" src="${slot.dataUrl}" alt="">` : ''}
+      ${!slot ? `<div class="slot-empty-btns">
+        <button class="slot-upload-btn slot-upload-file" onclick="triggerUpload(${i})">
+          <span class="icon">📁</span><span>อัปโหลด</span>
+        </button>
+        <button class="slot-upload-btn slot-upload-url" onclick="openUrlModal(${i})">
+          <span class="icon">🔗</span><span>ใส่ URL</span>
+        </button>
+      </div>` : ''}
+      ${slot ? `<div class="slot-overlay">
+        <button class="slot-set-answer" onclick="setAnswer(${i})">✓ คำตอบ</button>
+        <button class="slot-remove" onclick="removeSlot(${i})">✕ ลบ</button>
+      </div>` : ''}`;
+    grid.appendChild(el);
+  }
+}
+
+let pendingSlotIndex = -1;
+function triggerUpload(i) {
+  pendingSlotIndex = i;
+  const fi = document.getElementById('file-input');
+  fi.value = '';
+  fi.onchange = null;
+  fi.onchange = handleFileSelect;
+  fi.click();
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    builderSlots[pendingSlotIndex] = { dataUrl: ev.target.result };
+    if (builderAnswer === -1) builderAnswer = pendingSlotIndex; // auto-set first as answer
+    renderSlots();
+  };
+  reader.readAsDataURL(file);
+}
+// ─── URL MODAL ───────────────────────────────────────────
+let pendingUrlSlot = -1;
+let urlPreviewOk = false;
+
+function openUrlModal(i) {
+  pendingUrlSlot = i;
+  urlPreviewOk = false;
+  const input = document.getElementById('url-input');
+  const wrap = document.getElementById('url-preview-wrap');
+  const err = document.getElementById('url-preview-err');
+  const btn = document.getElementById('url-confirm-btn');
+  input.value = '';
+  wrap.style.display = 'none';
+  err.style.display = 'none';
+  btn.disabled = true;
+  document.getElementById('modal-url').classList.add('open');
+  setTimeout(() => input.focus(), 100);
+}
+function closeUrlModal() {
+  document.getElementById('modal-url').classList.remove('open');
+}
+function confirmUrl() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url || !urlPreviewOk) return;
+  builderSlots[pendingUrlSlot] = { dataUrl: url };
+  if (builderAnswer === -1) builderAnswer = pendingUrlSlot;
+  renderSlots();
+  closeUrlModal();
+}
+document.getElementById('url-input').addEventListener('input', function() {
+  const url = this.value.trim();
+  const wrap = document.getElementById('url-preview-wrap');
+  const prev = document.getElementById('url-preview');
+  const err = document.getElementById('url-preview-err');
+  const btn = document.getElementById('url-confirm-btn');
+  if (!url) { wrap.style.display = 'none'; btn.disabled = true; return; }
+  wrap.style.display = 'block';
+  err.style.display = 'none';
+  urlPreviewOk = false;
+  btn.disabled = true;
+  prev.src = url;
+  prev.onload = () => { urlPreviewOk = true; btn.disabled = false; err.style.display = 'none'; };
+  prev.onerror = () => { urlPreviewOk = false; btn.disabled = true; err.style.display = 'block'; };
+});
+document.getElementById('url-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') confirmUrl();
+});
+document.getElementById('modal-url').addEventListener('click', function(e) {
+  if (e.target === this) closeUrlModal();
+});
+
+function setAnswer(i) {
+  if (!builderSlots[i]) return;
+  builderAnswer = i;
+  renderSlots();
+}
+function removeSlot(i) {
+  builderSlots[i] = null;
+  if (builderAnswer === i) builderAnswer = -1;
+  renderSlots();
+}
+
+function saveGame() {
+  const title = document.getElementById('game-title').value.trim();
+  const question = document.getElementById('game-question').value.trim();
+  if (!title) { showToast('กรุณากรอกชื่อเกม', 'error'); return; }
+  if (!question) { showToast('กรุณากรอกคำถาม', 'error'); return; }
+  const filledSlots = builderSlots.filter(Boolean).length;
+  if (filledSlots < 2) { showToast('ต้องอัปโหลดรูปอย่างน้อย 2 รูป', 'error'); return; }
+  if (builderAnswer < 0 || !builderSlots[builderAnswer]) { showToast('กรุณาเลือกรูปที่ถูกต้อง', 'error'); return; }
+
+  if (editingId) {
+    const idx = games.findIndex(g => g.id === editingId);
+    if (idx >= 0) {
+      games[idx] = { id: editingId, title, question, slots: builderSlots, answerIndex: builderAnswer };
+      showToast('อัปเดตเกมเรียบร้อย ✓', 'success');
+    }
+  } else {
+    games.push({ id: uid(), title, question, slots: builderSlots, answerIndex: builderAnswer });
+    showToast('สร้างเกมเรียบร้อย ✓', 'success');
+  }
+  saveToStorage();
+  goHome();
+}
+
+// ─── DELETE ───────────────────────────────────────────────
+function askDelete(id, e) {
+  e.stopPropagation();
+  pendingDeleteId = id;
+  const g = games.find(x => x.id === id);
+  document.getElementById('modal-delete-msg').textContent =
+    `ลบเกม "${g ? g.title : ''}" ใช่ไหม? ไม่สามารถกู้คืนได้`;
+  document.getElementById('modal-delete').classList.add('open');
+}
+function confirmDelete() {
+  games = games.filter(g => g.id !== pendingDeleteId);
+  saveToStorage(); closeModal(); renderHome();
+  showToast('ลบเกมแล้ว');
+}
+function closeModal() {
+  document.getElementById('modal-delete').classList.remove('open');
+}
+
+// ─── PLAY ─────────────────────────────────────────────────
+function startPlay(id) {
+  const g = games.find(x => x.id === id);
+  if (!g) return;
+  playGameId = id;
+  playScore = 0;
+  playRound = 1;
+  playAnswered = false;
+  document.getElementById('play-game-title').textContent = g.title;
+  renderPlayRound(g);
+  showScreen('play');
+}
+
+function renderPlayRound(g) {
+  playAnswered = false;
+  document.getElementById('round-num').textContent = playRound;
+  document.getElementById('score-num').textContent = playScore;
+  document.getElementById('play-question').innerHTML = g.question
+    ? `<em>${escHtml(g.question)}</em>`
+    : 'รูปไหนคือคำตอบที่ถูกต้อง?';
+
+  // Result banner reset
+  const banner = document.getElementById('result-banner');
+  banner.className = 'result-banner';
+  banner.innerHTML = '';
+
+  // Build cards — shuffle indices but remember which is correct
+  const indices = shuffle([0,1,2,3,4,5].filter(i => g.slots[i]));
+  const grid = document.getElementById('play-grid');
+  grid.innerHTML = '';
+  indices.forEach((slotIdx, pos) => {
+    const card = document.createElement('div');
+    card.className = 'play-card';
+    card.dataset.correct = slotIdx === g.answerIndex ? '1' : '0';
+    card.innerHTML = `<img src="${g.slots[slotIdx].dataUrl}" alt="รูปที่ ${pos+1}">
+      <div class="play-card-num">${pos+1}</div>`;
+    card.onclick = () => handleGuess(card, g);
+    grid.appendChild(card);
+  });
+
+  // Actions
+  document.getElementById('play-actions').innerHTML = '';
+}
+
+function handleGuess(card, g) {
+  if (playAnswered) return;
+  playAnswered = true;
+  const isCorrect = card.dataset.correct === '1';
+
+  // Mark all cards
+  document.querySelectorAll('.play-card').forEach(c => {
+    c.classList.add('revealed');
+    if (c.dataset.correct === '1') c.classList.add('correct');
+    else c.classList.add('wrong');
+    c.style.cursor = 'default';
+  });
+
+  const banner = document.getElementById('result-banner');
+  if (isCorrect) {
+    playScore++;
+    document.getElementById('score-num').textContent = playScore;
+    banner.className = 'result-banner correct-banner';
+    banner.innerHTML = `<div class="big">🎉 ถูกต้อง!</div><div class="sub">เยี่ยมมาก คุณเลือกได้ถูกต้องแล้ว</div>`;
+  } else {
+    banner.className = 'result-banner wrong-banner';
+    banner.innerHTML = `<div class="big">❌ ผิด!</div><div class="sub">ลองใหม่ได้เลย คำตอบถูกคือรูปที่ไฮไลต์สีทอง</div>`;
+  }
+
+  const actions = document.getElementById('play-actions');
+  actions.innerHTML = '';
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-primary';
+  nextBtn.textContent = '▶ เล่นอีกรอบ';
+  nextBtn.onclick = () => { playRound++; renderPlayRound(g); };
+  actions.appendChild(nextBtn);
+  const homeBtn = document.createElement('button');
+  homeBtn.className = 'btn btn-secondary';
+  homeBtn.textContent = '← เลือกเกมอื่น';
+  homeBtn.onclick = goHome;
+  actions.appendChild(homeBtn);
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function shuffle(arr) { const a = [...arr]; for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Close modal on overlay click
+document.getElementById('modal-delete').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+loadFromStorage();
+renderHome();
+</script>
+</body>
+</html>
